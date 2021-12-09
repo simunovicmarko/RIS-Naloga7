@@ -68,6 +68,7 @@ namespace Naloga5
             Console.WriteLine("7. Shrani v xml");
             Console.WriteLine("8. XPath");
             Console.WriteLine("9. Transformacija artiklov");
+            Console.WriteLine("10. Transformacija dobaviteljev");
 
             string? s = Console.ReadLine();
             int selection = int.Parse(s == null ? "0" : s);
@@ -128,15 +129,78 @@ namespace Naloga5
                     XUI();
                     break;
                 case 9:
-                    Transform();
+                    TransformArtikli();
                     break;
+                case 10:
+                    TransformDobavitelji();
+                    break;
+                //case 11:
+                //    TransformArtikliXPATH();
+                //    break;
+                //case 12:
+                //    TransformDobaviteljiXPATH();
+                //    break;
 
             }
             Console.WriteLine();
             return selection;
         }
 
-        private static void Transform() {
+        //private static void TransformArtikliXPATH() {
+        //    try {
+        //        XPathDocument myXPathDoc = new XPathDocument(@"Temp.xml");
+        //        XslCompiledTransform myXslTrans = new XslCompiledTransform();
+        //        myXslTrans.Load(@"template.xslt");
+        //        XmlTextWriter myWriter = new XmlTextWriter(@"rez.html", null);
+        //        myXslTrans.Transform(myXPathDoc, null, myWriter);
+        //        myWriter.Close();
+
+        //        // odpremo dokument
+        //        //Process.Start(@"rez.html");
+        //    }
+        //    catch (Exception e) {
+        //        Console.WriteLine("Napaka!" + e.ToString());
+        //    }
+        //}
+
+        //private static void TransformDobaviteljiXPATH() {
+        //    try {
+        //        XPathDocument myXPathDoc = new XPathDocument(@"Temp.xml");
+        //        XslCompiledTransform myXslTrans = new XslCompiledTransform();
+        //        myXslTrans.Load(@"templateDobavitelji.xslt");
+        //        XmlTextWriter myWriter = new XmlTextWriter(@"rezDob.html", null);
+        //        myXslTrans.Transform(myXPathDoc, null, myWriter);
+        //        myWriter.Close();
+
+        //        // odpremo dokument
+        //        //Process.Start(@"rez.html");
+        //    }
+        //    catch (Exception e) {
+        //        Console.WriteLine("Napaka!" + e.ToString());
+        //    }
+        //}
+
+
+        //private static void 
+
+        private static void TransformDobavitelji() {
+            try {
+                XPathDocument myXPathDoc = new XPathDocument(@"Dobavitelji.xml");
+                XslCompiledTransform myXslTrans = new XslCompiledTransform();
+                myXslTrans.Load(@"templateDobavitelji.xslt");
+                XmlTextWriter myWriter = new XmlTextWriter(@"rezDob.html", null);
+                myXslTrans.Transform(myXPathDoc, null, myWriter);
+                myWriter.Close();
+
+                // odpremo dokument
+                //Process.Start(@"rez.html");
+            }
+            catch (Exception e) {
+                Console.WriteLine("Napaka!" + e.ToString());
+            }
+        }
+
+        private static void TransformArtikli() {
             try {
                 XPathDocument myXPathDoc = new XPathDocument(@"artikli.xml");
                 XslCompiledTransform myXslTrans = new XslCompiledTransform();
@@ -146,12 +210,34 @@ namespace Naloga5
                 myWriter.Close();
 
                 // odpremo dokument
-                Process.Start(@"rez.html");
+                //Process.Start(@"rez.html");
             }
             catch (Exception e) {
                 Console.WriteLine("Napaka!" + e.ToString());
             }
         }
+
+
+        private static string ExecuteAnyXPath(string xpath, string filename = "artikli.xml") {
+            //XPathDocument doc = new XPathDocument(filename);
+            XPathDocument doc = new XPathDocument(filename);
+            XPathNavigator nav = doc.CreateNavigator();
+            string result;
+            try {
+
+                result = ExecuteXPathString(xpath, filename);
+                return result;
+            }
+            catch (XPathException) {
+                result = ExecuteXPathEvalString(xpath, filename);
+                return result;
+            }
+            catch (Exception) {
+
+                throw;
+            }
+        }
+
 
         private static void XUI() {
             Console.Clear();
@@ -201,7 +287,7 @@ namespace Naloga5
                 case 9:
                     SteviloVsehArtiklov();
                     break;
-                
+
             }
         }
 
@@ -217,6 +303,23 @@ namespace Naloga5
                 }
             }
         }
+        
+        private static string ExecuteXPathString(string xpath, string filename = "artikli.xml") {
+            //XPathDocument doc = new XPathDocument(filename);
+            XPathDocument doc = new XPathDocument(filename);
+            XPathNavigator nav = doc.CreateNavigator();
+
+            XPathNodeIterator iterator = nav.Select(xpath);
+            string outString = "";
+            while (iterator.MoveNext()) {
+                if (iterator.Current != null) {
+                    //Console.WriteLine(iterator.Current.Value);
+                    outString += iterator.Current.Value;
+                }
+            }
+
+            return outString;
+        }
         private static void ExecuteXPathEval(string xpath, string filename = "artikli.xml") {
             XPathDocument doc = new XPathDocument(filename);
             XPathNavigator nav = doc.CreateNavigator();
@@ -224,6 +327,15 @@ namespace Naloga5
 
             string output = nav.Evaluate(xpath).ToString();
             Console.WriteLine(output);
+        }
+        private static string ExecuteXPathEvalString(string xpath, string filename = "artikli.xml") {
+            XPathDocument doc = new XPathDocument(filename);
+            XPathNavigator nav = doc.CreateNavigator();
+
+
+            string output = nav.Evaluate(xpath).ToString();
+            //Console.WriteLine(output);
+            return output;
         }
 
         private static void IzpisiVsaImenaArtiklov() {
@@ -245,7 +357,7 @@ namespace Naloga5
         private static void IzpisiNajdrazjiArtikel() {
             ExecuteXPath($"//Artikel[Cena=max(//Cena)]/Ime");
         }
-        
+
         private static void IzpisiNajcenejsiArtikel() {
             ExecuteXPath($"//Artikel[Cena=min(//Cena)]/Ime");
         }
