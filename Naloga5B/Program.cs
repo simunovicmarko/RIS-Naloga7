@@ -1,10 +1,12 @@
 ﻿using System.Diagnostics;
+using System.Reflection.Metadata;
 using System.Xml;
 using System.Xml.Linq;
 using System.Xml.Schema;
 using System.Xml.Serialization;
 using System.Xml.XPath;
 using System.Xml.Xsl;
+using Xceed.Words.NET;
 
 namespace Naloga5
 {
@@ -35,7 +37,8 @@ namespace Naloga5
         private static List<Artikel> artikli = new List<Artikel>();
         private static List<Artikel> artikliVAkciji = new List<Artikel>();
 
-        static void Main(string[] args) {
+        static void Main(string[] args)
+        {
             //writeListToFile(artikli);
             //writeListToFile(dobaviteljs, "Dobavitelji.xml");
 
@@ -48,7 +51,8 @@ namespace Naloga5
             Init();
             int selection = 1;
 
-            while (selection != 0) {
+            while (selection != 0)
+            {
                 selection = UI();
             }
 
@@ -57,7 +61,8 @@ namespace Naloga5
 
         }
 
-        private static int UI() {
+        private static int UI()
+        {
             Console.WriteLine("0. Izhod");
             Console.WriteLine("1. Branje vseh dokumentov");
             Console.WriteLine("2. Iskanje po dobavitelju in številu artiklov");
@@ -69,12 +74,18 @@ namespace Naloga5
             Console.WriteLine("8. XPath");
             Console.WriteLine("9. Transformacija artiklov");
             Console.WriteLine("10. Transformacija dobaviteljev");
+            //Console.WriteLine("11. FO Transformacija artiklov");
+            Console.WriteLine("11. Zapiši artikle v .docx datoteko");
+            Console.WriteLine("12. Beri .docx");
+            Console.WriteLine("13. Write DOM - Vsi artikli na zalogi");
+            Console.WriteLine("14. Write DOM - Vsi artikli pod mejo");
 
             string? s = Console.ReadLine();
             int selection = int.Parse(s == null ? "0" : s);
 
 
-            switch (selection) {
+            switch (selection)
+            {
                 case 1:
                     IzpisiSeznam(artikli);
                     break;
@@ -97,11 +108,13 @@ namespace Naloga5
                     Console.WriteLine("Za koliko odstotkov želite znižati ceno");
                     int odstotki = int.Parse(Console.ReadLine());
 
-                    if (artikliVAkciji.Where(x => x.Ime == artikel.Ime).Count() < 1) {
+                    if (artikliVAkciji.Where(x => x.Ime == artikel.Ime).Count() < 1)
+                    {
                         artikel = znizajCeno(artikel, odstotki);
                         artikliVAkciji.Add(artikel);
                     }
-                    else {
+                    else
+                    {
                         artikelVAkciji = artikliVAkciji.Find(x => x.Ime == artikel.Ime);
                         artikelVAkciji = znizajCeno(artikel, odstotki);
                         artikliVAkciji.Find(x => x.Ime == artikelVAkciji.Ime).Cena = artikelVAkciji.Cena;
@@ -134,74 +147,125 @@ namespace Naloga5
                 case 10:
                     TransformDobavitelji();
                     break;
-                //case 11:
-                //    TransformArtikliXPATH();
-                //    break;
-                //case 12:
-                //    TransformDobaviteljiXPATH();
-                //    break;
+                case 11:
+                    WriteDocX();
+                    break;
+                case 12:
+                    ReadDocX();
+                    break;
+                case 13:
+                    WriteDOM();
+                    break;
+                case 14:
+                    Console.WriteLine("Vpišite kritično mejo");
+                    int meja = int.Parse(Console.ReadLine());
+                    WriteDOM(meja);
+                    break;
 
             }
             Console.WriteLine();
             return selection;
         }
 
-        //private static void TransformArtikliXPATH() {
-        //    try {
-        //        XPathDocument myXPathDoc = new XPathDocument(@"Temp.xml");
-        //        XslCompiledTransform myXslTrans = new XslCompiledTransform();
-        //        myXslTrans.Load(@"template.xslt");
-        //        XmlTextWriter myWriter = new XmlTextWriter(@"rez.html", null);
-        //        myXslTrans.Transform(myXPathDoc, null, myWriter);
-        //        myWriter.Close();
+        private static void WriteDocX()
+        {
+            string fileName = @"artikli.docx";
 
-        //        // odpremo dokument
-        //        //Process.Start(@"rez.html");
-        //    }
-        //    catch (Exception e) {
-        //        Console.WriteLine("Napaka!" + e.ToString());
-        //    }
-        //}
+            var doc = DocX.Create(fileName);
 
-        //private static void TransformDobaviteljiXPATH() {
-        //    try {
-        //        XPathDocument myXPathDoc = new XPathDocument(@"Temp.xml");
-        //        XslCompiledTransform myXslTrans = new XslCompiledTransform();
-        //        myXslTrans.Load(@"templateDobavitelji.xslt");
-        //        XmlTextWriter myWriter = new XmlTextWriter(@"rezDob.html", null);
-        //        myXslTrans.Transform(myXPathDoc, null, myWriter);
-        //        myWriter.Close();
+            foreach (var artikel in artikli)
+            {
+                doc.InsertParagraph(artikel.ToString());
+            }
 
-        //        // odpremo dokument
-        //        //Process.Start(@"rez.html");
-        //    }
-        //    catch (Exception e) {
-        //        Console.WriteLine("Napaka!" + e.ToString());
-        //    }
-        //}
+            //doc.InsertParagraph("Hello Word");
+
+            doc.Save();
+
+            Process.Start(@"C:\Program Files\Microsoft Office\root\Office16\WINWORD.EXE", $"\"{fileName}\"");
+
+        }
+
+        private static void ReadDocX()
+        {
+            DocX doc = DocX.Load(@"artikli.docx");
+
+            Console.WriteLine(doc.Xml);
+
+        }
+
+        public static void WriteDOM(int meja = 0)
+        {
+            XmlDocument doc = new XmlDocument();
+
+            XmlElement listOfArtikel = doc.CreateElement("ListOfArtikel");
+
+            var arts = artikli.Where(e => meja < 1 ? e.Zaloga > meja : e.Zaloga < meja);
+
+            foreach (var artikel in arts)
+            {
+                XmlElement novArt = doc.CreateElement("artikel");
+                XmlElement Id = doc.CreateElement("Id");
+                Id.InnerText = artikel.Id.ToString();
+                XmlElement ime = doc.CreateElement("Ime");
+                ime.InnerText = artikel.Ime;
+                XmlElement dobaviteljId = doc.CreateElement("DobaviteljId");
+                dobaviteljId.InnerText = artikel.Dobavitelj.Id.ToString();
+                XmlElement Cena = doc.CreateElement("Ime");
+                Cena.InnerText = artikel.Cena.ToString();
+                XmlElement Zaloga = doc.CreateElement("Zaloga");
+                Zaloga.InnerText = artikel.Zaloga.ToString();
+
+                novArt.AppendChild(Id);
+                novArt.AppendChild(ime);
+                novArt.AppendChild(dobaviteljId);
+                novArt.AppendChild(Cena);
+                novArt.AppendChild(Zaloga);
+
+                listOfArtikel.AppendChild(novArt);
+            }
 
 
-        //private static void 
+            //XmlElement artNaziv = doc.CreateElement("naziv");
+            //artNaziv.SetAttribute("cena", "3€");
+            //artNaziv.InnerText = "Olje";
+            //novArt.AppendChild(artNaziv);
 
-        private static void TransformDobavitelji() {
-            try {
+            doc.AppendChild(listOfArtikel);
+
+            XmlTextWriter tw = new XmlTextWriter(@"ArtikliDOM.xml", null);
+            tw.Formatting = Formatting.Indented;
+            doc.WriteContentTo(tw);
+
+            tw.Close();
+
+        }
+
+
+        private static void TransformDobavitelji()
+        {
+            try
+            {
                 XPathDocument myXPathDoc = new XPathDocument(@"Dobavitelji.xml");
                 XslCompiledTransform myXslTrans = new XslCompiledTransform();
                 myXslTrans.Load(@"templateDobavitelji.xslt");
-                XmlTextWriter myWriter = new XmlTextWriter(@"rezDob.html", null);
+                XmlTextWriter myWriter = new XmlTextWriter(@"rezDob.htmll", null);
                 myXslTrans.Transform(myXPathDoc, null, myWriter);
                 myWriter.Close();
 
                 // odpremo dokument
                 //Process.Start(@"rez.html");
             }
-            catch (Exception e) {
+            catch (Exception e)
+            {
                 Console.WriteLine("Napaka!" + e.ToString());
             }
         }
 
-        private static void TransformArtikli() {
-            try {
+        private static void TransformArtikli()
+        {
+            try
+            {
                 XPathDocument myXPathDoc = new XPathDocument(@"artikli.xml");
                 XslCompiledTransform myXslTrans = new XslCompiledTransform();
                 myXslTrans.Load(@"template.xslt");
@@ -212,34 +276,40 @@ namespace Naloga5
                 // odpremo dokument
                 //Process.Start(@"rez.html");
             }
-            catch (Exception e) {
+            catch (Exception e)
+            {
                 Console.WriteLine("Napaka!" + e.ToString());
             }
         }
 
 
-        private static string ExecuteAnyXPath(string xpath, string filename = "artikli.xml") {
+        private static string ExecuteAnyXPath(string xpath, string filename = "artikli.xml")
+        {
             //XPathDocument doc = new XPathDocument(filename);
             XPathDocument doc = new XPathDocument(filename);
             XPathNavigator nav = doc.CreateNavigator();
             string result;
-            try {
+            try
+            {
 
                 result = ExecuteXPathString(xpath, filename);
                 return result;
             }
-            catch (XPathException) {
+            catch (XPathException)
+            {
                 result = ExecuteXPathEvalString(xpath, filename);
                 return result;
             }
-            catch (Exception) {
+            catch (Exception)
+            {
 
                 throw;
             }
         }
 
 
-        private static void XUI() {
+        private static void XUI()
+        {
             Console.Clear();
             Console.WriteLine("1. Izpisi vsa imena");
             Console.WriteLine("2. Izpši vsa imena artiklov katerih cena je večja od: ");
@@ -255,7 +325,8 @@ namespace Naloga5
 
             int input = int.Parse(Console.ReadLine());
             Console.Clear();
-            switch (input) {
+            switch (input)
+            {
                 case 1:
                     IzpisiVsaImenaArtiklov();
                     break;
@@ -291,28 +362,34 @@ namespace Naloga5
             }
         }
 
-        private static void ExecuteXPath(string xpath, string filename = "artikli.xml") {
+        private static void ExecuteXPath(string xpath, string filename = "artikli.xml")
+        {
             //XPathDocument doc = new XPathDocument(filename);
             XPathDocument doc = new XPathDocument(filename);
             XPathNavigator nav = doc.CreateNavigator();
 
             XPathNodeIterator iterator = nav.Select(xpath);
-            while (iterator.MoveNext()) {
-                if (iterator.Current != null) {
+            while (iterator.MoveNext())
+            {
+                if (iterator.Current != null)
+                {
                     Console.WriteLine(iterator.Current.Value);
                 }
             }
         }
-        
-        private static string ExecuteXPathString(string xpath, string filename = "artikli.xml") {
+
+        private static string ExecuteXPathString(string xpath, string filename = "artikli.xml")
+        {
             //XPathDocument doc = new XPathDocument(filename);
             XPathDocument doc = new XPathDocument(filename);
             XPathNavigator nav = doc.CreateNavigator();
 
             XPathNodeIterator iterator = nav.Select(xpath);
             string outString = "";
-            while (iterator.MoveNext()) {
-                if (iterator.Current != null) {
+            while (iterator.MoveNext())
+            {
+                if (iterator.Current != null)
+                {
                     //Console.WriteLine(iterator.Current.Value);
                     outString += iterator.Current.Value;
                 }
@@ -320,7 +397,8 @@ namespace Naloga5
 
             return outString;
         }
-        private static void ExecuteXPathEval(string xpath, string filename = "artikli.xml") {
+        private static void ExecuteXPathEval(string xpath, string filename = "artikli.xml")
+        {
             XPathDocument doc = new XPathDocument(filename);
             XPathNavigator nav = doc.CreateNavigator();
 
@@ -328,7 +406,8 @@ namespace Naloga5
             string output = nav.Evaluate(xpath).ToString();
             Console.WriteLine(output);
         }
-        private static string ExecuteXPathEvalString(string xpath, string filename = "artikli.xml") {
+        private static string ExecuteXPathEvalString(string xpath, string filename = "artikli.xml")
+        {
             XPathDocument doc = new XPathDocument(filename);
             XPathNavigator nav = doc.CreateNavigator();
 
@@ -338,41 +417,51 @@ namespace Naloga5
             return output;
         }
 
-        private static void IzpisiVsaImenaArtiklov() {
+        private static void IzpisiVsaImenaArtiklov()
+        {
             ExecuteXPath("//Ime");
         }
-        private static void IzpisiVsaImenaArtiklovKaterihCenaJeVecjaOd(int cena = 10) {
+        private static void IzpisiVsaImenaArtiklovKaterihCenaJeVecjaOd(int cena = 10)
+        {
             ExecuteXPath($"//Artikel[Cena>{cena}]/Ime");
         }
 
-        private static void IzpisiVsotoCenVsehArtiklov() {
+        private static void IzpisiVsotoCenVsehArtiklov()
+        {
             ExecuteXPathEval("sum(//Artikel/Cena)");
         }
-        private static void IzpisiPovprecjeCenVsehArtiklov() {
+        private static void IzpisiPovprecjeCenVsehArtiklov()
+        {
             ExecuteXPathEval("avg(//Artikel/Cena)");
         }
-        private static void IzpisiVseArtikleDolocenegaDobavitelja(string dobavitelj = "FERI") {
+        private static void IzpisiVseArtikleDolocenegaDobavitelja(string dobavitelj = "FERI")
+        {
             ExecuteXPath($"//Artikel[Dobavitelj/Naziv='{dobavitelj}']/Ime");
         }
-        private static void IzpisiNajdrazjiArtikel() {
+        private static void IzpisiNajdrazjiArtikel()
+        {
             ExecuteXPath($"//Artikel[Cena=max(//Cena)]/Ime");
         }
 
-        private static void IzpisiNajcenejsiArtikel() {
+        private static void IzpisiNajcenejsiArtikel()
+        {
             ExecuteXPath($"//Artikel[Cena=min(//Cena)]/Ime");
         }
-        private static void ArtilekZNajvecjoZalogo() {
+        private static void ArtilekZNajvecjoZalogo()
+        {
             ExecuteXPath($"//Artikel[Zaloga=max(//Zaloga)]");
         }
 
-        private static void SteviloVsehArtiklov() {
+        private static void SteviloVsehArtiklov()
+        {
             ExecuteXPathEval("sum(//Artikel/zaloga)");
         }
 
 
 
 
-        private static void DodajArtikel() {
+        private static void DodajArtikel()
+        {
             int id = artikli.Max(x => x.Id) + 1;
             Console.WriteLine("Vpišite naziv artikla");
             string? naziv = Console.ReadLine();
@@ -380,18 +469,23 @@ namespace Naloga5
 
             Dobavitelj? dobavitelj;
             string? dobaviteljNaziv;
-            while (true) {
+            while (true)
+            {
                 dobaviteljNaziv = Console.ReadLine();
-                try {
-                    if (dobaviteljNaziv != null) {
+                try
+                {
+                    if (dobaviteljNaziv != null)
+                    {
                         dobavitelj = dobaviteljs.Find(x => x.Naziv.ToLower() == dobaviteljNaziv.ToLower());
 
-                        if (dobavitelj != null) {
+                        if (dobavitelj != null)
+                        {
                             break;
                         }
                     }
                 }
-                catch {
+                catch
+                {
                     Console.WriteLine("Vpisan dobavitelj ne obstaja");
                 }
             }
@@ -408,13 +502,15 @@ namespace Naloga5
 
             bool _valid = ValidateXmlArtikel(fileName);
 
-            if (_valid) {
+            if (_valid)
+            {
                 artikli.Add(artikel);
                 Console.WriteLine("Artikel uspešno dodan");
             }
         }
 
-        private static void DodajDobavitelja() {
+        private static void DodajDobavitelja()
+        {
             int Id = dobaviteljs.Max(x => x.Id) + 1;
 
             Console.WriteLine("Vnesite naziv");
@@ -437,14 +533,16 @@ namespace Naloga5
             string fileName = $"{dobavitelj.Id}_{dobavitelj.Naziv}.xml";
             writeToFile(dobavitelj, fileName);
             bool _valid = ValidateXmlDobavitelj(fileName);
-            if (_valid) {
+            if (_valid)
+            {
                 dobaviteljs.Add(dobavitelj);
                 Console.WriteLine("Dobavitelj uspešno dodan");
             }
 
         }
 
-        private static bool ValidateXmlArtikel(string filename) {
+        private static bool ValidateXmlArtikel(string filename)
+        {
             XmlReaderSettings settings = new XmlReaderSettings();
             settings.XmlResolver = new XmlUrlResolver();
             settings.Schemas.Add("Artikel", "Validator.xsd");
@@ -469,7 +567,8 @@ namespace Naloga5
             valid = true;
             return _valid;
         }
-        private static bool ValidateXmlDobavitelj(string filename) {
+        private static bool ValidateXmlDobavitelj(string filename)
+        {
             XmlReaderSettings settings = new XmlReaderSettings();
             settings.XmlResolver = new XmlUrlResolver();
             settings.Schemas.Add("Dobavitelj", "Validator.xsd");
@@ -498,16 +597,20 @@ namespace Naloga5
 
 
         // Display any validation errors.
-        private static void ValidationCallBack(object sender, ValidationEventArgs e) {
+        private static void ValidationCallBack(object sender, ValidationEventArgs e)
+        {
             Console.WriteLine("Validation Error: {0}", e.Message);
             valid = false;
         }
 
-        private static void Init() {
-            if (File.Exists("artikli.xml")) {
+        private static void Init()
+        {
+            if (File.Exists("artikli.xml"))
+            {
                 artikli = readArtikliFromFile();
             }
-            if (File.Exists("artikliVAkciji.xml")) {
+            if (File.Exists("artikliVAkciji.xml"))
+            {
                 artikliVAkciji = readArtikliFromFile("artikliVAkciji.xml");
             }
             if (File.Exists("Dobavitelji.xml"))
@@ -516,17 +619,21 @@ namespace Naloga5
 
 
 
-        private static void IzpisiSeznam(IEnumerable<Artikel> artikli) {
-            foreach (var art in artikli) {
+        private static void IzpisiSeznam(IEnumerable<Artikel> artikli)
+        {
+            foreach (var art in artikli)
+            {
                 Console.WriteLine(art.ToString());
             }
         }
 
-        private static List<Artikel> iskanjePoDobavitelju(string dobavitelj, int zaloga) {
+        private static List<Artikel> iskanjePoDobavitelju(string dobavitelj, int zaloga)
+        {
             return artikli.Where(x => x.Dobavitelj.Naziv == dobavitelj && x.Zaloga < zaloga).ToList();
         }
 
-        private static Artikel znizajCeno(Artikel artikel, int procenti) {
+        private static Artikel znizajCeno(Artikel artikel, int procenti)
+        {
             Artikel copy = new Artikel(artikel);
             decimal procentiPo = (100 - procenti) / 100.0m;
             copy.Cena = (decimal)copy.Cena * procentiPo;
@@ -535,16 +642,19 @@ namespace Naloga5
         }
 
 
-        private static void writeListToFile<T>(IEnumerable<T> seznam, string fileName = "artikli.xml") {
+        private static void writeListToFile<T>(IEnumerable<T> seznam, string fileName = "artikli.xml")
+        {
             XmlSerializer serializer = new XmlSerializer(typeof(List<T>));
 
 
-            using (StreamWriter sw = new StreamWriter(fileName)) {
+            using (StreamWriter sw = new StreamWriter(fileName))
+            {
                 serializer.Serialize(sw, seznam);
             }
 
         }
-        private static void writeToFile<T>(T obj, string fileName) {
+        private static void writeToFile<T>(T obj, string fileName)
+        {
             XmlSerializer serializer = new XmlSerializer(typeof(T));
             string type = typeof(T).Name;
 
@@ -552,31 +662,37 @@ namespace Naloga5
             XmlSerializerNamespaces ns = new XmlSerializerNamespaces();
             ns.Add("", "");
 
-            using (XmlWriter xw = XmlWriter.Create(fileName)) {
+            using (XmlWriter xw = XmlWriter.Create(fileName))
+            {
                 //xw.WriteDocType(type, null, $"{type}.dtd", null);
                 serializer.Serialize(xw, obj, ns);
             }
         }
 
-        private static void dodaj(Artikel artikel) {
+        private static void dodaj(Artikel artikel)
+        {
             artikli.Add(artikel);
         }
 
-        private static List<Artikel> readArtikliFromFile(string fileName = "artikli.xml") {
+        private static List<Artikel> readArtikliFromFile(string fileName = "artikli.xml")
+        {
             List<Artikel> artikli = new List<Artikel>();
             XmlSerializer serializer = new XmlSerializer(typeof(List<Artikel>));
 
-            using (StreamReader sr = new StreamReader(fileName)) {
+            using (StreamReader sr = new StreamReader(fileName))
+            {
                 artikli = (List<Artikel>)serializer.Deserialize(sr);
             }
             return artikli;
         }
 
-        private static List<Dobavitelj> readDobaviteljiFromFile(string fileName) {
+        private static List<Dobavitelj> readDobaviteljiFromFile(string fileName)
+        {
             List<Dobavitelj> dobavitelji = new List<Dobavitelj>();
             XmlSerializer serializer = new XmlSerializer(typeof(List<Dobavitelj>));
 
-            using (StreamReader sr = new StreamReader(fileName)) {
+            using (StreamReader sr = new StreamReader(fileName))
+            {
                 dobavitelji = (List<Dobavitelj>)serializer.Deserialize(sr);
             }
             return dobavitelji;
